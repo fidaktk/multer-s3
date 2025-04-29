@@ -25,9 +25,9 @@
   "author": "Fida ur Rehman <fidaktk@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/fidaktk/multer-s3-transform/issues"
+    "url": "https://github.com/fidaktk/multer-s3/issues"
   },
-  "homepage": "https://github.com/fidaktk/multer-s3-transform#readme",
+  "homepage": "https://github.com/fidaktk/multer-s3#readme",
   "publishConfig": {
     "access": "public"
   },
