@@ -182,10 +182,14 @@ function S3Storage(opts) {
     default: throw new TypeError('Expected opts.sseKmsKeyId to be undefined, string, or function')
   }
 
-  switch (typeof opts.shouldTransform) {
-    case 'function': this.shouldTransform = opts.shouldTransform; break
-    case 'undefined': this.shouldTransform = null; break
-    default: throw new TypeError('Expected opts.shouldTransform to be undefined or function')
+  if (typeof opts.shouldTransform === 'function') {
+    this.shouldTransform = opts.shouldTransform
+  } else if (opts.shouldTransform === true || opts.shouldTransform === 1) {
+    this.shouldTransform = () => true
+  } else if (opts.shouldTransform === false || opts.shouldTransform === 0 || typeof opts.shouldTransform === 'undefined') {
+    this.shouldTransform = () => false
+  } else {
+    throw new TypeError('Expected opts.shouldTransform to be undefined, function, boolean, or 0/1')
   }
 
   switch (typeof opts.transforms) {
