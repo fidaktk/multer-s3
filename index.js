@@ -1,34 +1,34 @@
-var crypto = require('crypto')
-var stream = require('stream')
-var fileType = require('file-type')
-var htmlCommentRegex = require('html-comment-regex')
-var parallel = require('run-parallel')
-var Upload = require('@aws-sdk/lib-storage').Upload
-var DeleteObjectCommand = require('@aws-sdk/client-s3').DeleteObjectCommand
-var util = require('util')
+const crypto = require('crypto')
+const stream = require('stream')
+const fileType = require('file-type')
+const htmlCommentRegex = require('html-comment-regex')
+const parallel = require('run-parallel')
+const Upload = require('@aws-sdk/lib-storage').Upload
+const DeleteObjectCommand = require('@aws-sdk/client-s3').DeleteObjectCommand
+const util = require('util')
 
-function staticValue (value) {
+function staticValue(value) {
   return function (req, file, cb) {
     cb(null, value)
   }
 }
 
-var defaultAcl = staticValue('private')
-var defaultContentType = staticValue('application/octet-stream')
+const defaultAcl = staticValue('private')
+const defaultContentType = staticValue('application/octet-stream')
 
-var defaultMetadata = staticValue(undefined)
-var defaultCacheControl = staticValue(null)
-var defaultContentDisposition = staticValue(null)
-var defaultContentEncoding = staticValue(null)
-var defaultStorageClass = staticValue('STANDARD')
-var defaultSSE = staticValue(null)
-var defaultSSEKMS = staticValue(null)
+const defaultMetadata = staticValue(undefined)
+const defaultCacheControl = staticValue(null)
+const defaultContentDisposition = staticValue(null)
+const defaultContentEncoding = staticValue(null)
+const defaultStorageClass = staticValue('STANDARD')
+const defaultSSE = staticValue(null)
+const defaultSSEKMS = staticValue(null)
 
 // Regular expression to detect svg file content, inspired by: https://github.com/sindresorhus/is-svg/blob/master/index.js
 // It is not always possible to check for an end tag if a file is very big. The firstChunk, see below, might not be the entire file.
-var svgRegex = /^\s*(?:<\?xml[^>]*>\s*)?(?:<!doctype svg[^>]*>\s*)?<svg[^>]*>/i
+const svgRegex = /^\s*(?:<\?xml[^>]*>\s*)?(?:<!doctype svg[^>]*>\s*)?<svg[^>]*>/i
 
-function isSvg (svg) {
+function isSvg(svg) {
   // Remove DTD entities
   svg = svg.replace(/\s*<!Entity\s+\S*\s*(?:"|')[^"]+(?:"|')\s*>/img, '')
   // Remove DTD markup declarations
@@ -39,16 +39,16 @@ function isSvg (svg) {
   return svgRegex.test(svg)
 }
 
-function defaultKey (req, file, cb) {
+function defaultKey(req, file, cb) {
   crypto.randomBytes(16, function (err, raw) {
     cb(err, err ? undefined : raw.toString('hex'))
   })
 }
 
-function autoContentType (req, file, cb) {
+function autoContentType(req, file, cb) {
   file.stream.once('data', function (firstChunk) {
-    var type = fileType(firstChunk)
-    var mime = 'application/octet-stream' // default type
+    const type = fileType(firstChunk)
+    let mime = 'application/octet-stream' // default type
 
     // Make sure to check xml-extension for svg files.
     if ((!type || type.ext === 'xml') && isSvg(firstChunk.toString())) {
@@ -57,7 +57,7 @@ function autoContentType (req, file, cb) {
       mime = type.mime
     }
 
-    var outStream = new stream.PassThrough()
+    const outStream = new stream.PassThrough()
 
     outStream.write(firstChunk)
     file.stream.pipe(outStream)
@@ -66,7 +66,7 @@ function autoContentType (req, file, cb) {
   })
 }
 
-function collect (storage, req, file, cb) {
+function collect(storage, req, file, cb) {
   parallel([
     storage.getBucket.bind(storage, req, file),
     storage.getKey.bind(storage, req, file),
@@ -92,8 +92,8 @@ function collect (storage, req, file, cb) {
         cacheControl: values[4],
         contentDisposition: values[5],
         storageClass: values[6],
-        contentType: contentType,
-        replacementStream: replacementStream,
+        contentType,
+        replacementStream,
         serverSideEncryption: values[7],
         sseKmsKeyId: values[8],
         contentEncoding: values[9]
@@ -102,7 +102,7 @@ function collect (storage, req, file, cb) {
   })
 }
 
-function S3Storage (opts) {
+function S3Storage(opts) {
   switch (typeof opts.s3) {
     case 'object': this.s3 = opts.s3; break
     default: throw new TypeError('Expected opts.s3 to be object')
@@ -181,63 +181,102 @@ function S3Storage (opts) {
     case 'undefined': this.getSSEKMS = defaultSSEKMS; break
     default: throw new TypeError('Expected opts.sseKmsKeyId to be undefined, string, or function')
   }
+
+  switch (typeof opts.shouldTransform) {
+    case 'function': this.shouldTransform = opts.shouldTransform; break
+    case 'undefined': this.shouldTransform = null; break
+    default: throw new TypeError('Expected opts.shouldTransform to be undefined or function')
+  }
+
+  switch (typeof opts.transforms) {
+    case 'object': this.transforms = opts.transforms; break
+    case 'undefined': this.transforms = null; break
+    default: throw new TypeError('Expected opts.transforms to be undefined or array')
+  }
 }
 
 S3Storage.prototype._handleFile = function (req, file, cb) {
-  collect(this, req, file, function (err, opts) {
+  collect(this, req, file, (err, opts) => {
     if (err) return cb(err)
 
-    var currentSize = 0
+    const uploadToS3 = (stream, key, done) => {
+      let currentSize = 0
+      const params = {
+        Bucket: opts.bucket,
+        Key: key,
+        ACL: opts.acl,
+        CacheControl: opts.cacheControl,
+        ContentType: opts.contentType,
+        Metadata: opts.metadata,
+        StorageClass: opts.storageClass,
+        ServerSideEncryption: opts.serverSideEncryption,
+        SSEKMSKeyId: opts.sseKmsKeyId,
+        Body: stream
+      }
 
-    var params = {
-      Bucket: opts.bucket,
-      Key: opts.key,
-      ACL: opts.acl,
-      CacheControl: opts.cacheControl,
-      ContentType: opts.contentType,
-      Metadata: opts.metadata,
-      StorageClass: opts.storageClass,
-      ServerSideEncryption: opts.serverSideEncryption,
-      SSEKMSKeyId: opts.sseKmsKeyId,
-      Body: (opts.replacementStream || file.stream)
-    }
+      if (opts.contentDisposition) {
+        params.ContentDisposition = opts.contentDisposition
+      }
 
-    if (opts.contentDisposition) {
-      params.ContentDisposition = opts.contentDisposition
-    }
+      if (opts.contentEncoding) {
+        params.ContentEncoding = opts.contentEncoding
+      }
 
-    if (opts.contentEncoding) {
-      params.ContentEncoding = opts.contentEncoding
-    }
-
-    var upload = new Upload({
-      client: this.s3,
-      params: params
-    })
-
-    upload.on('httpUploadProgress', function (ev) {
-      if (ev.total) currentSize = ev.total
-    })
-
-    util.callbackify(upload.done.bind(upload))(function (err, result) {
-      if (err) return cb(err)
-
-      cb(null, {
-        size: currentSize,
-        bucket: opts.bucket,
-        key: opts.key,
-        acl: opts.acl,
-        contentType: opts.contentType,
-        contentDisposition: opts.contentDisposition,
-        contentEncoding: opts.contentEncoding,
-        storageClass: opts.storageClass,
-        serverSideEncryption: opts.serverSideEncryption,
-        metadata: opts.metadata,
-        location: result.Location,
-        etag: result.ETag,
-        versionId: result.VersionId
+      const upload = new Upload({
+        client: this.s3,
+        params
       })
-    })
+
+      upload.on('httpUploadProgress', (ev) => {
+        if (ev.total) currentSize = ev.total
+      })
+
+      util.callbackify(upload.done.bind(upload))((err, result) => {
+        if (err) return done(err)
+        done(null, {
+          size: currentSize,
+          bucket: opts.bucket,
+          key,
+          acl: opts.acl,
+          contentType: opts.contentType,
+          contentDisposition: opts.contentDisposition,
+          contentEncoding: opts.contentEncoding,
+          storageClass: opts.storageClass,
+          serverSideEncryption: opts.serverSideEncryption,
+          metadata: opts.metadata,
+          location: result.Location,
+          etag: result.ETag,
+          versionId: result.VersionId
+        })
+      })
+    }
+
+    if (!this.shouldTransform || !this.shouldTransform(req, file)) {
+      uploadToS3(opts.replacementStream || file.stream, opts.key, cb)
+    } else {
+      const results = []
+      const transforms = this.transforms || []
+      let completed = 0
+      for (let i = 0; i < transforms.length; i++) {
+        transforms[i].transform(req, file, (err, piper, fileName) => {
+          if (err) return cb(err)
+          if (!piper || typeof piper.pipe !== 'function') {
+            return cb(new Error('Transform must return a stream'))
+          }
+          const key = fileName || `${opts.key}-${i}`
+          const stream = (opts.replacementStream || file.stream).pipe(piper)
+
+          uploadToS3.call(this, stream, key, (err, result) => {
+            if (err) return cb(err)
+            results[i] = result
+            completed++
+            if (completed === transforms.length) {
+              cb(null, results)
+            }
+          })
+        })
+      }
+    }
   })
 }
 

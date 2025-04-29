@@ -1,20 +1,31 @@
-# Multer S3
+# @fidaktk/multer-s3
 
-Streaming multer storage engine for AWS S3.
+A modern streaming multer storage engine for AWS S3 (based on multer-s3, rewritten for AWS SDK v3 with transform support).
 
 This project is mostly an integration piece for existing code samples from Multer's [storage engine documentation](https://github.com/expressjs/multer/blob/master/StorageEngine.md) with a call to S3 as the substitution piece for file system.  Existing solutions I found required buffering the multipart uploads into the actual filesystem which is difficult to scale.
 
 ## AWS SDK Versions
 
-3.x.x releases of multer-s3 use AWS JavaScript SDK v3. Specifically, it uses the Upload class from [@aws-sdk/lib-storage](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/modules/_aws_sdk_lib_storage.html) which in turn calls the modular [S3Client](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/clients/client-s3/classes/s3client.html).
+3.x.x releases of @fidaktk/multer-s3 use AWS JavaScript SDK v3. Specifically, it uses the Upload class from [@aws-sdk/lib-storage](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/modules/_aws_sdk_lib_storage.html) which in turn calls the modular [S3Client](https://docs.aws.amazon.com/AWSJavaScriptSDK/v3/latest/clients/client-s3/classes/s3client.html).
 
-2.x.x releases for multer-s3 use AWS JavaScript SDK v2 via a call to [s3.upload](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#upload-property).
+2.x.x releases for @fidaktk/multer-s3 use AWS JavaScript SDK v2 via a call to [s3.upload](https://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html#upload-property).
 
 ## Installation
 
 ```sh
-npm install --save multer-s3
+npm install --save @fidaktk/multer-s3
 ```
+
+## Features
+
+- ✅ Supports AWS SDK v3 (@aws-sdk/client-s3 and @aws-sdk/lib-storage)
+- ✅ Stream-based upload (no local file buffering)
+- ✅ Automatic content type detection (SVG and other formats)
+- ✅ Customizable metadata, ACLs, cache control, content encoding, etc.
+- ✅ Supports server-side encryption (SSE-S3 and SSE-KMS)
+- ✅ Supports `transform` option to modify file streams before upload (e.g., resizing)
+- ✅ Allows conditional transformation via `shouldTransform` callback
+- ✅ Handles multipart form uploads with Express + Multer
 
 ## Usage
 
@@ -22,7 +33,7 @@ npm install --save multer-s3
 const { S3Client } = require('@aws-sdk/client-s3')
 const express = require('express')
 const multer = require('multer')
-const multerS3 = require('multer-s3')
+const multerS3 = require('@fidaktk/multer-s3')
 
 const app = express()
 
@@ -48,7 +59,7 @@ app.post('/upload', upload.array('photos', 3), function(req, res, next) {
 
 ### File information
 
-Each file contains the following information exposed by `multer-s3`:
+Each file contains the following information exposed by `@fidaktk/multer-s3`:
 
 Key | Description | Note
 --- | --- | ---
@@ -67,7 +78,7 @@ Key | Description | Note
 
 ### Setting ACL
 
-[ACL values](http://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl) can be set by passing an optional `acl` parameter into the `multerS3` object.
+[ACL values](http://docs.aws.amazon.com/AmazonS3/latest/dev/acl-overview.html#canned-acl) can be set by passing an optional `acl` parameter into the `@fidaktk/multer-s3` object.
 
 ```javascript
 var upload = multer({
@@ -135,7 +146,7 @@ var upload = multer({
 
 ## Setting Custom Content-Type
 
-The optional `contentType` option can be used to set Content/mime type of the file. By default the content type is set to `application/octet-stream`. If you want multer-s3 to automatically find the content-type of the file, use the `multerS3.AUTO_CONTENT_TYPE` constant. Here is an example that will detect the content type of the file being uploaded.
+The optional `contentType` option can be used to set Content/mime type of the file. By default the content type is set to `application/octet-stream`. If you want @fidaktk/multer-s3 to automatically find the content-type of the file, use the `multerS3.AUTO_CONTENT_TYPE` constant. Here is an example that will detect the content type of the file being uploaded.
 
 ```javascript
 var upload = multer({
@@ -153,7 +164,7 @@ You may also use a function as the `contentType`, which should be of the form `f
 
 ## Setting StorageClass
 
-[storageClass values](https://aws.amazon.com/s3/storage-classes/) can be set by passing an optional `storageClass` parameter into the `multerS3` object.
+[storageClass values](https://aws.amazon.com/s3/storage-classes/) can be set by passing an optional `storageClass` parameter into the `@fidaktk/multer-s3` object.
 
 ```javascript
 var upload = multer({
@@ -228,6 +239,30 @@ var upload = multer({
 })
 ```
 You may also use a function as the `contentEncoding`, which should be of the form `function(req, file, cb)`.
+
+## Transform Example
+
+```js
+const sharp = require('sharp')
+
+const upload = multer({
+  storage: multerS3({
+    s3,
+    bucket: 'your-bucket',
+    shouldTransform: (req, file) => file.mimetype.startsWith('image/'),
+    transforms: [
+      {
+        id: 'resized',
+        transform: (req, file, cb) => {
+          const resize = sharp().resize(300)
+          cb(null, resize, `resized-${Date.now()}.jpg`)
+        }
+      }
+    ],
+    key: (req, file, cb) => cb(null, `original-${Date.now()}.jpg`)
+  })
+})
+```
 
 ## Testing
 

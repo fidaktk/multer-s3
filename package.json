@@ -1,7 +1,7 @@
 {
-  "name": "multer-s3",
+  "name": "@fidaktk/multer-s3",
   "version": "3.0.1",
-  "description": "Streaming multer storage engine for AWS S3",
+  "description": "Streaming multer storage engine for AWS S3 with support for image transformation",
   "main": "index.js",
   "scripts": {
     "test": "standard && mocha test/basic.js"
@@ -11,36 +11,45 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/badunk/multer-s3.git"
+    "url": "git+https://github.com/fidaktk/multer-s3.git"
   },
   "keywords": [
     "multer",
     "s3",
     "amazon",
-    "aws"
+    "aws",
+    "storage",
+    "digitalocean",
+    "spaces"
   ],
-  "author": "badunk",
+  "author": "Fida ur Rehman <fidaktk@gmail.com>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/badunk/multer-s3/issues"
+    "url": "https://github.com/fidaktk/multer-s3-transform/issues"
   },
-  "homepage": "https://github.com/badunk/multer-s3#readme",
+  "homepage": "https://github.com/fidaktk/multer-s3-transform#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@aws-sdk/lib-storage": "^3.46.0",
+    "@aws-sdk/s3-request-presigner": "^3.798.0",
+    "@aws-sdk/smithy-client": "^3.370.0",
+    "@aws-sdk/types": "^3.775.0",
     "file-type": "^3.3.0",
     "html-comment-regex": "^1.1.2",
     "run-parallel": "^1.1.6"
   },
   "peerDependencies": {
-    "@aws-sdk/client-s3": "^3.0.0"
+    "@aws-sdk/client-s3": "^3.798.0"
   },
   "devDependencies": {
     "express": "^4.13.1",
     "form-data": "^1.0.0-rc3",
-    "mocha": "^2.2.5",
-    "multer": "^1.1.0",
+    "mocha": "^11.1.0",
+    "multer": "^1.4.5-lts.2",
     "on-finished": "^2.3.0",
-    "standard": "^5.4.1",
+    "standard": "^17.1.2",
     "xtend": "^4.0.1"
   }
 }
