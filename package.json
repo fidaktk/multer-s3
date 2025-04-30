@@ -1,6 +1,6 @@
 {
   "name": "@fidaktk/multer-s3",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Streaming multer storage engine for AWS S3 with support for image transformation",
   "main": "index.js",
   "scripts": {
