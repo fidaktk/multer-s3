@@ -249,7 +249,7 @@ S3Storage.prototype._handleFile = function (req, file, cb) {
             results[i] = result
             completed++
             if (completed === transforms.length) {
-              cb(null, results)
+              cb(null, transforms.length === 1 ? results[0] : results)
             }
           })
         })
